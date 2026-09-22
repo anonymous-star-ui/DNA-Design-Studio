@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>DNA Design Studio | Synthetic Bio-CAD Platform</title>
-<link rel="manifest" href="manifest.json">
+  <link rel="manifest" href="manifest.json">
   <link rel="icon" type="image/svg+xml" href="icon.svg">
   <meta name="theme-color" content="#030712">
   <script src="https://cdn.tailwindcss.com"></script>
@@ -83,9 +83,9 @@
 
   <!-- Firebase Core & Auth SDKs -->
   <script type="module">
-if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('./sw.js').catch(console.error);
-}
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('./sw.js').catch(console.error);
+    }
     import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
     import { 
       getAuth, 
@@ -204,6 +204,15 @@ if ('serviceWorker' in navigator) {
 
       <button onclick="openCustomBaseModal()" class="px-2.5 py-1.5 rounded-md bg-purple-950/50 hover:bg-purple-900/60 border border-purple-500/40 text-purple-300 text-xs font-semibold flex items-center gap-1 transition">
         <span>[+] New Letter</span>
+      </button>
+
+      <!-- Hidden File Input for Import -->
+      <input type="file" id="importFileInput" accept=".dnaproj,.fasta,.fa,.txt,.json" style="display:none;" onchange="handleFileImport(event)">
+
+      <!-- Import Button -->
+      <button onclick="document.getElementById('importFileInput').click()" class="px-2.5 py-1.5 rounded-md bg-sky-950/70 hover:bg-sky-900 border border-sky-500/40 text-sky-300 text-xs font-semibold flex items-center gap-1 transition" title="Import .dnaproj, FASTA, or Letter Library">
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
+        <span>Import</span>
       </button>
 
       <button onclick="exportProjectFile()" class="px-2.5 py-1.5 rounded-md bg-slate-800/90 hover:bg-slate-700 border border-slate-700 text-slate-300 text-xs transition">
@@ -1101,6 +1110,69 @@ generateHelix(24, 0.35);"></textarea>
       }
       handleSequenceChange();
       rebuildHelix();
+    }
+
+    /* IMPORT LOGIC: Projects (.dnaproj / .json) and FASTA (.fasta / .txt) */
+    function handleFileImport(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      const fileName = file.name.toLowerCase();
+
+      reader.onload = function(e) {
+        const content = e.target.result;
+
+        try {
+          if (fileName.endsWith('.dnaproj') || fileName.endsWith('.json')) {
+            const data = JSON.parse(content);
+
+            if (data.registry) {
+              Object.assign(GENETIC_REGISTRY, data.registry);
+              renderPaletteUI();
+            }
+
+            if (data.primaryStrand) {
+              document.getElementById('primarySequenceInput').value = data.primaryStrand;
+            }
+
+            if (data.thermalTemp) {
+              document.getElementById('tempSlider').value = data.thermalTemp;
+              updateTemperature(data.thermalTemp);
+            }
+
+            document.getElementById('headerProjectName').innerText = file.name;
+            handleSequenceChange();
+            rebuildHelix();
+            logEvent(`Imported project construct [${file.name}] successfully.`, 'text-emerald-400');
+          } else {
+            const lines = content.split('\n');
+            let parsedSeq = '';
+            for (let line of lines) {
+              line = line.trim();
+              if (!line.startsWith('>') && line.length > 0) {
+                parsedSeq += line;
+              }
+            }
+            if (parsedSeq) {
+              document.getElementById('primarySequenceInput').value = parsedSeq.toUpperCase();
+              document.getElementById('headerProjectName').innerText = file.name;
+              handleSequenceChange();
+              rebuildHelix();
+              logEvent(`Imported FASTA sequence [${file.name}] (${parsedSeq.length} bp).`, 'text-emerald-400');
+            } else {
+              alert("FASTA file lo valid sequence data kanipinchaledu!");
+            }
+          }
+        } catch (err) {
+          alert("File import error: " + err.message);
+          logEvent(`Import failed: ${err.message}`, 'text-rose-400');
+        }
+
+        event.target.value = '';
+      };
+
+      reader.readAsText(file);
     }
 
     function exportProjectFile() {
